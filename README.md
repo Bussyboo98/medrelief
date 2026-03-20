@@ -61,6 +61,174 @@ This guide helps judges run and test the project locally.
 ```bash
 git clone https://github.com/RuthChisom/medrelief
 cd medrelief
+````
+
+---
+
+## 📜 2. Install Dependencies
+
+### Smart Contracts (Foundry)
+
+```bash
+forge install
 ```
 
-### MedRelief deployed at on Polkadot Testnet: 0xA57B95e94D45BF4D8A056a2b6ce71989d9739D6A
+### Frontend
+
+```bash
+cd frontend
+npm install
+```
+
+---
+
+## 🔐 3. Configure Environment
+
+Create a `.env` file in the frontend:
+
+```env
+NEXT_PUBLIC_CONTRACT_ADDRESS=0xA57B95e94D45BF4D8A056a2b6ce71989d9739D6A
+```
+
+---
+
+## 🚀 4. Deploy Smart Contract (Optional for Judges)
+
+Using Foundry:
+
+```bash
+forge script script/Deploy.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast
+```
+
+Copy the deployed contract address into your `.env` file.
+
+---
+
+## 🌐 5. Run the Frontend
+
+```bash
+npm run dev
+```
+
+Open:
+
+```
+http://localhost:3000
+```
+
+---
+
+## 🦊 6. Connect Wallet
+
+* Open MetaMask
+* Connect to the Polkadot Hub EVM network
+* Import or use a funded test account
+
+---
+
+## 🧪 7. Test Core Features
+
+* Deposit funds into the pool
+* Create an emergency request
+* Add validators (admin only)
+* Approve requests (validator only)
+* Observe automatic execution when threshold is met
+* View request status updates (pending → executed)
+
+---
+
+# 🛣️ Roadmap
+
+## Phase 1 (Current)
+
+* Emergency request submission
+* Validator approval system
+* Automatic execution of approved requests
+* Basic UI for deposits and requests
+
+## Phase 2
+
+* Reputation scoring for validators
+* User identity attestation (optional verification layer)
+* Better analytics dashboard for fund tracking
+
+## Phase 3
+
+* Integration with real-world healthcare providers
+* Optional document verification (off-chain)
+* Mobile-friendly and cross-platform UX improvements
+
+## Phase 4
+
+* DAO-based governance for validator selection
+* Token-based incentives for validators
+* Expanded public good funding mechanisms
+
+---
+
+# 💡 Innovative Idea
+
+MedRelief introduces a **decentralized emergency funding system** where:
+
+* Financial aid is governed by **community validators instead of centralized authorities**
+* Smart contracts enforce transparency and automatic fund distribution
+* Off-chain structured data combined with on-chain logic enables flexible yet accountable decision-making
+
+This model bridges **real-world healthcare needs** with **blockchain-based trust systems**, enabling faster and fairer access to emergency support.
+
+---
+
+# 🔗 Track Relevance
+
+## ✅ EVM Track
+
+* Smart contracts written in **Solidity**
+* Fully compatible with **EVM infrastructure on Polkadot Hub**
+* Uses standard EVM tooling (Foundry, ethers.js, MetaMask)
+* Demonstrates non-trivial logic:
+
+  * Role-based access control
+  * Multi-validator approval system
+  * Automatic execution of funds
+
+---
+
+## ✅ OpenZeppelin Track
+
+MedRelief heavily utilizes OpenZeppelin contracts:
+
+* **AccessControl**
+
+  * Used to define admin and validator roles
+* Role-based permissions for secure operations
+* Extensible and secure contract design
+* Demonstrates meaningful use beyond ERC token standards
+
+---
+
+# 🔐 Security Considerations
+
+* Role-based access control for validators and admin
+* Only authorized validators can approve requests
+* Multi-signature-like approval threshold
+* Automatic execution only when conditions are met
+* Protection against unauthorized fund withdrawals
+
+---
+
+# 👨‍💻 About the Project
+
+MedRelief was built as a solo project to demonstrate how blockchain technology can solve real-world problems in healthcare funding by combining decentralization, transparency, and community governance.
+
+---
+
+# 🚀 Future Vision
+
+MedRelief aims to evolve into a global decentralized infrastructure for emergency funding, enabling:
+
+* Community-driven healthcare support systems
+* Cross-border emergency assistance
+* Transparent and verifiable fund allocation
+* Scalable validator-based governance models
+
+---
