@@ -237,6 +237,33 @@ button { cursor: pointer; font-size: 0.875rem; border-radius: var(--radius); bor
   margin-bottom: 0.5rem;
 }
 
+.req-extras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.req-link {
+  font-size: 0.8rem;
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 500;
+}
+.req-link:hover { text-decoration: underline; }
+
+.req-contact {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.field-optional {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .request-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
 
 .badge {

@@ -7,6 +7,16 @@ import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/Toast';
 import { parseError } from '../lib/parseError';
 
+function parseReason(raw: string): { reason: string; link: string; contact: string } {
+  try {
+    const p = JSON.parse(raw);
+    if (p && typeof p.reason === 'string') {
+      return { reason: p.reason, link: p.link ?? '', contact: p.contact ?? '' };
+    }
+  } catch {}
+  return { reason: raw, link: '', contact: '' };
+}
+
 export default function Home() {
   const {
     account, isConnected, connect, disconnect,
@@ -18,12 +28,12 @@ export default function Home() {
 
   const [requests, setRequests]       = useState<any[]>([]);
   const [activeTab, setActiveTab]     = useState<'pending' | 'executed'>('pending');
-  const [formData, setFormData]       = useState({ deposit: '', reqAmount: '', reqReason: '', validatorAddress: '' });
+  const [formData, setFormData]       = useState({ deposit: '', reqAmount: '', reqReason: '', reqLink: '', reqContact: '', validatorAddress: '' });
   const [isAdmin, setIsAdmin]         = useState(false);
   const [isValidator, setIsValidator] = useState(false);
   const [poolBalance, setPoolBalance] = useState<string | null>(null);
   const [validators, setValidators]   = useState<string[]>([]);
-  const [errors, setErrors]           = useState({ deposit: '', reqAmount: '', reqReason: '', validatorAddress: '' });
+  const [errors, setErrors]           = useState({ deposit: '', reqAmount: '', reqReason: '', reqLink: '', validatorAddress: '' });
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [key]: e.target.value }));
@@ -41,6 +51,16 @@ export default function Home() {
     return '';
   };
   const validateReason  = (val: string) => val.trim() ? '' : 'Reason is required.';
+  const validateUrl = (val: string) => {
+    if (!val.trim()) return '';
+    try {
+      const url = new URL(val);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'Link must start with http:// or https://';
+      return '';
+    } catch {
+      return 'Enter a valid URL (e.g. https://example.com)';
+    }
+  };
   const validateAddress = (val: string) => {
     if (!val.trim()) return 'Address is required.';
     if (!ethers.isAddress(val)) return 'Enter a valid Ethereum address.';
@@ -279,13 +299,27 @@ export default function Home() {
                 <input placeholder="Brief description" value={formData.reqReason} onChange={set('reqReason')} />
                 {errors.reqReason && <span className="field-error">{errors.reqReason}</span>}
               </div>
+              <div className="field">
+                <label>More Info Link <span className="field-optional">(optional)</span></label>
+                <input placeholder="https://…" value={formData.reqLink} onChange={set('reqLink')} />
+                {errors.reqLink && <span className="field-error">{errors.reqLink}</span>}
+              </div>
+              <div className="field">
+                <label>Contact Info <span className="field-optional">(optional)</span></label>
+                <input placeholder="Email, phone, or handle" value={formData.reqContact} onChange={set('reqContact')} />
+              </div>
               <button className="btn-secondary" style={{ width: '100%' }}
                 disabled={!formData.reqAmount.trim() || !formData.reqReason.trim()}
                 onClick={() => {
                   const amtErr = validateAmount(formData.reqAmount);
                   const rsErr  = validateReason(formData.reqReason);
-                  if (amtErr || rsErr) { setErrors(prev => ({ ...prev, reqAmount: amtErr, reqReason: rsErr })); return; }
-                  handleAction(() => createRequest(formData.reqAmount, formData.reqReason), 'Emergency request submitted successfully.');
+                  const lnkErr = validateUrl(formData.reqLink);
+                  if (amtErr || rsErr || lnkErr) { setErrors(prev => ({ ...prev, reqAmount: amtErr, reqReason: rsErr, reqLink: lnkErr })); return; }
+                  const hasExtras = formData.reqLink.trim() || formData.reqContact.trim();
+                  const payload = hasExtras
+                    ? JSON.stringify({ reason: formData.reqReason.trim(), link: formData.reqLink.trim(), contact: formData.reqContact.trim() })
+                    : formData.reqReason;
+                  handleAction(() => createRequest(formData.reqAmount, payload), 'Emergency request submitted successfully.');
                 }}>
                 Submit Request
               </button>
@@ -337,7 +371,10 @@ export default function Home() {
               {activeTab === 'pending' ? 'No pending requests.' : 'No executed requests yet.'}
             </div>
           ) : (
-            shown.map(req => (
+            shown.map(req => {
+              const parsed = parseReason(req.reason);
+              const safeLink = parsed.link && /^https?:\/\//i.test(parsed.link) ? parsed.link : '';
+              return (
               <div key={req.id} className={`request-card ${req.executed ? 'executed' : ''}`}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <span className="request-id">Request #{req.id}</span>
@@ -346,13 +383,26 @@ export default function Home() {
                   </span>
                 </div>
 
-                <p className="request-reason">{req.reason}</p>
+                <p className="request-reason">{parsed.reason}</p>
 
                 <p className="request-meta">
                   {ethers.formatEther(req.amount)} ETH &nbsp;·&nbsp;
                   {req.approvals}/2 approvals &nbsp;·&nbsp;
                   <span style={{ fontFamily: 'monospace' }}>{req.requester.slice(0, 8)}…</span>
                 </p>
+
+                {(safeLink || parsed.contact) && (
+                  <div className="req-extras">
+                    {safeLink && (
+                      <a href={safeLink} target="_blank" rel="noopener noreferrer" className="req-link">
+                        View Details →
+                      </a>
+                    )}
+                    {parsed.contact && (
+                      <span className="req-contact">Contact: {parsed.contact}</span>
+                    )}
+                  </div>
+                )}
 
                 {!req.executed && (
                   <div className="approvals-bar">
@@ -369,7 +419,8 @@ export default function Home() {
                   </div>
                 )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
