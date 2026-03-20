@@ -7,6 +7,37 @@ import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/Toast';
 import { parseError } from '../lib/parseError';
 
+const REPORT_SECTIONS = [
+  { key: 'emergencyType', label: 'Emergency Type' },
+  { key: 'urgency',       label: 'Urgency' },
+  { key: 'situation',     label: 'Situation' },
+  { key: 'requestedUse',  label: 'Requested Use' },
+  { key: 'notes',         label: 'Additional Notes' },
+] as const;
+
+type SectionKey = typeof REPORT_SECTIONS[number]['key'];
+
+function formatReportSections(text: string): Record<SectionKey, string> {
+  const empty: Record<SectionKey, string> = { emergencyType: '', urgency: '', situation: '', requestedUse: '', notes: '' };
+  const pattern = /(?:emergency\s*type|urgency|situation|requested\s*use|additional\s*notes?)\s*[:\-–]/gi;
+  const matches = [...text.matchAll(pattern)];
+  if (matches.length === 0) return { ...empty, situation: text.trim() };
+  const result = { ...empty };
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const start = m.index! + m[0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
+    const value = text.slice(start, end).trim().replace(/[.\s]+$/, '');
+    const lbl = m[0].toLowerCase();
+    if (/emergency/.test(lbl))      result.emergencyType = value;
+    else if (/urgency/.test(lbl))   result.urgency       = value;
+    else if (/situation/.test(lbl)) result.situation     = value;
+    else if (/requested/.test(lbl)) result.requestedUse  = value;
+    else                            result.notes         = value;
+  }
+  return result;
+}
+
 function parseReason(raw: string): { reason: string; link: string; contact: string } {
   try {
     const p = JSON.parse(raw);
@@ -33,6 +64,7 @@ export default function Home() {
   const [isValidator, setIsValidator] = useState(false);
   const [poolBalance, setPoolBalance] = useState<string | null>(null);
   const [validators, setValidators]   = useState<string[]>([]);
+  const [modalReq, setModalReq]       = useState<any | null>(null);
   const [errors, setErrors]           = useState({ deposit: '', reqAmount: '', reqReason: '', reqLink: '', validatorAddress: '' });
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -378,9 +410,12 @@ export default function Home() {
               <div key={req.id} className={`request-card ${req.executed ? 'executed' : ''}`}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <span className="request-id">Request #{req.id}</span>
-                  <span className={`badge ${req.executed ? 'badge-executed' : 'badge-pending'}`}>
-                    {req.executed ? 'Funded' : 'Pending'}
-                  </span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button className="btn-ghost btn-sm" onClick={() => setModalReq(req)}>Details</button>
+                    <span className={`badge ${req.executed ? 'badge-executed' : 'badge-pending'}`}>
+                      {req.executed ? 'Funded' : 'Pending'}
+                    </span>
+                  </div>
                 </div>
 
                 <p className="request-reason">{parsed.reason}</p>
@@ -425,6 +460,58 @@ export default function Home() {
         </div>
 
       </main>
+
+      {/* ── Request details modal ───────────────────────────── */}
+      {modalReq && (() => {
+        const parsed   = parseReason(modalReq.reason);
+        const sections = formatReportSections(parsed.reason);
+        const safeLink = parsed.link && /^https?:\/\//i.test(parsed.link) ? parsed.link : '';
+        return (
+          <div className="modal-overlay" onClick={() => setModalReq(null)}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+
+              <div className="modal-header">
+                <span className="modal-header-title">Request #{modalReq.id} — Details</span>
+                <button className="modal-close" onClick={() => setModalReq(null)} aria-label="Close">✕</button>
+              </div>
+
+              <div className="modal-body">
+                <div className="modal-meta">
+                  <span>{ethers.formatEther(modalReq.amount)} ETH</span>
+                  <span>{modalReq.approvals}/2 approvals</span>
+                  <span style={{ fontFamily: 'monospace' }}>{modalReq.requester.slice(0, 10)}…</span>
+                  <span className={`badge ${modalReq.executed ? 'badge-executed' : 'badge-pending'}`}>
+                    {modalReq.executed ? 'Funded' : 'Pending'}
+                  </span>
+                </div>
+
+                {REPORT_SECTIONS.map(({ key, label }) => (
+                  <div key={key} className="report-section">
+                    <span className="report-label">{label}</span>
+                    <span className={`report-value${sections[key] ? '' : ' empty'}`}>
+                      {sections[key] || '—'}
+                    </span>
+                  </div>
+                ))}
+
+                {(safeLink || parsed.contact) && (
+                  <div className="modal-extras">
+                    {safeLink && (
+                      <a href={safeLink} target="_blank" rel="noopener noreferrer" className="req-link">
+                        View More →
+                      </a>
+                    )}
+                    {parsed.contact && (
+                      <span className="req-contact">Contact: {parsed.contact}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Toast notifications (fixed, bottom-right) ────────── */}
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
