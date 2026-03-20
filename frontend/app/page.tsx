@@ -11,7 +11,7 @@ export default function Home() {
   const {
     account, isConnected, connect, disconnect,
     deposit, createRequest, approveRequest, executeRequest,
-    addValidator, removeValidator, checkIsAdmin, checkIsValidator, getReadOnlyContract, getPoolBalance,
+    addValidator, removeValidator, checkIsAdmin, checkIsValidator, getReadOnlyContract, getPoolBalance, getValidators,
   } = useMedRelief();
 
   const { toasts, notify, dismiss } = useToast();
@@ -22,6 +22,7 @@ export default function Home() {
   const [isAdmin, setIsAdmin]         = useState(false);
   const [isValidator, setIsValidator] = useState(false);
   const [poolBalance, setPoolBalance] = useState<string | null>(null);
+  const [validators, setValidators]   = useState<string[]>([]);
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setFormData(prev => ({ ...prev, [key]: e.target.value }));
@@ -90,12 +91,28 @@ export default function Home() {
     }
   };
 
-  useEffect(() => { fetchRequests(); fetchPoolBalance(); }, []);
+  const fetchValidators = async () => {
+    try {
+      const list = await getValidators();
+      setValidators(list);
+    } catch {
+      setValidators([]);
+    }
+  };
+
+  useEffect(() => { fetchRequests(); fetchPoolBalance(); fetchValidators(); }, []);
 
   useEffect(() => {
     if (isConnected && account) {
-      checkIsAdmin(account).then(setIsAdmin);
-      checkIsValidator(account).then(setIsValidator);
+      Promise.all([checkIsAdmin(account), checkIsValidator(account)]).then(([adminResult, validatorResult]) => {
+        setIsAdmin(adminResult);
+        // Admin is always treated as a validator in the UI
+        setIsValidator(adminResult || validatorResult);
+        // If admin doesn't yet have VALIDATOR_ROLE on-chain, grant it automatically (one-time)
+        if (adminResult && !validatorResult) {
+          addValidator(account).catch(() => {});
+        }
+      });
     } else {
       setIsAdmin(false);
       setIsValidator(false);
@@ -155,6 +172,8 @@ export default function Home() {
         {isConnected && isAdmin && (
           <div className="card">
             <p className="card-title">👑 Manage Validators</p>
+
+            {/* Add validator */}
             <div className="field-row">
               <div className="field">
                 <label>Validator Address</label>
@@ -162,19 +181,33 @@ export default function Home() {
               </div>
               <button className="btn-primary"
                 onClick={() => handleAction(
-                  () => addValidator(formData.validatorAddress),
+                  async () => { await addValidator(formData.validatorAddress); await fetchValidators(); },
                   'Validator added successfully.'
                 )}>
                 Add
               </button>
-              <button className="btn-danger"
-                onClick={() => handleAction(
-                  () => removeValidator(formData.validatorAddress),
-                  'Validator removed.'
-                )}>
-                Remove
-              </button>
             </div>
+
+            {/* Validator list */}
+            {validators.length > 0 && (
+              <div className="validator-list">
+                {validators.map(addr => (
+                  <div key={addr} className="validator-row">
+                    <span className="validator-addr">{addr.slice(0, 10)}…{addr.slice(-6)}</span>
+                    <button className="btn-danger btn-sm"
+                      onClick={() => handleAction(
+                        async () => { await removeValidator(addr); await fetchValidators(); },
+                        'Validator removed.'
+                      )}>
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {validators.length === 0 && (
+              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.75rem' }}>No validators added yet.</p>
+            )}
           </div>
         )}
 

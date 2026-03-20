@@ -86,6 +86,20 @@ export function useMedRelief() {
     return provider.getBalance(contractAddress);
   }, []);
 
+  const getValidators = useCallback(async (): Promise<string[]> => {
+    const contract = await getReadOnlyContract();
+    const validatorRole = await contract.VALIDATOR_ROLE();
+    const granted = await contract.queryFilter(contract.filters.RoleGranted(validatorRole));
+    const unique = [...new Set(granted.map((e: any) => e.args.account as string))];
+    const results = await Promise.all(
+      unique.map(async (addr) => {
+        const has = await contract.hasRole(validatorRole, addr);
+        return has ? addr : null;
+      })
+    );
+    return results.filter((a): a is string => a !== null);
+  }, [getReadOnlyContract]);
+
   const checkIsAdmin = async (userAddress: string) => {
     try {
       const contract = await getReadOnlyContract();
@@ -122,5 +136,6 @@ export function useMedRelief() {
     getContract,
     getReadOnlyContract,
     getPoolBalance,
+    getValidators,
   };
 }
