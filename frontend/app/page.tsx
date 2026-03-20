@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import Image from 'next/image';
 import { useMedRelief } from '../hooks/useMedRelief';
+import { useToast } from '../hooks/useToast';
+import ToastContainer from '../components/Toast';
+import { parseError } from '../lib/parseError';
 
 export default function Home() {
   const {
@@ -11,24 +14,25 @@ export default function Home() {
     addValidator, removeValidator, checkIsAdmin, checkIsValidator, getReadOnlyContract,
   } = useMedRelief();
 
-  const [requests, setRequests]   = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'pending' | 'executed'>('pending');
-  const [formData, setFormData]   = useState({ deposit: '', reqAmount: '', reqReason: '', validatorAddress: '' });
-  const [error, setError]         = useState<string | null>(null);
+  const { toasts, notify, dismiss } = useToast();
+
+  const [requests, setRequests]       = useState<any[]>([]);
+  const [activeTab, setActiveTab]     = useState<'pending' | 'executed'>('pending');
+  const [formData, setFormData]       = useState({ deposit: '', reqAmount: '', reqReason: '', validatorAddress: '' });
   const [isAdmin, setIsAdmin]         = useState(false);
   const [isValidator, setIsValidator] = useState(false);
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setFormData(prev => ({ ...prev, [key]: e.target.value }));
 
-  const handleAction = async (action: () => Promise<any>) => {
-    setError(null);
+  // Central action runner — all contract calls go through here
+  const handleAction = async (action: () => Promise<any>, successMsg: string) => {
     try {
       await action();
-      alert('Success!');
+      notify('success', successMsg);
       fetchRequests();
     } catch (e: any) {
-      setError(e.reason || e.message || 'An error occurred');
+      notify('error', parseError(e));
     }
   };
 
@@ -100,11 +104,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* ── Error ──────────────────────────────────────────── */}
-        {error && (
-          <div className="error-box"><strong>Error:</strong> {error}</div>
-        )}
-
         {/* ── Admin: Manage Validators ────────────────────────── */}
         {isConnected && isAdmin && (
           <div className="card">
@@ -114,8 +113,20 @@ export default function Home() {
                 <label>Validator Address</label>
                 <input placeholder="0x…" value={formData.validatorAddress} onChange={set('validatorAddress')} />
               </div>
-              <button className="btn-primary" onClick={() => handleAction(() => addValidator(formData.validatorAddress))}>Add</button>
-              <button className="btn-danger"  onClick={() => handleAction(() => removeValidator(formData.validatorAddress))}>Remove</button>
+              <button className="btn-primary"
+                onClick={() => handleAction(
+                  () => addValidator(formData.validatorAddress),
+                  'Validator added successfully.'
+                )}>
+                Add
+              </button>
+              <button className="btn-danger"
+                onClick={() => handleAction(
+                  () => removeValidator(formData.validatorAddress),
+                  'Validator removed.'
+                )}>
+                Remove
+              </button>
             </div>
           </div>
         )}
@@ -132,7 +143,10 @@ export default function Home() {
                 <input type="number" placeholder="0.0" value={formData.deposit} onChange={set('deposit')} />
               </div>
               <button className="btn-primary" style={{ width: '100%' }}
-                onClick={() => handleAction(() => deposit(formData.deposit))}>
+                onClick={() => handleAction(
+                  () => deposit(formData.deposit),
+                  `Successfully deposited ${formData.deposit} ETH.`
+                )}>
                 Send ETH
               </button>
             </div>
@@ -149,7 +163,10 @@ export default function Home() {
                 <input placeholder="Brief description" value={formData.reqReason} onChange={set('reqReason')} />
               </div>
               <button className="btn-secondary" style={{ width: '100%' }}
-                onClick={() => handleAction(() => createRequest(formData.reqAmount, formData.reqReason))}>
+                onClick={() => handleAction(
+                  () => createRequest(formData.reqAmount, formData.reqReason),
+                  'Emergency request submitted successfully.'
+                )}>
                 Submit Request
               </button>
             </div>
@@ -213,12 +230,18 @@ export default function Home() {
                   <div className="request-actions">
                     {isValidator && (
                       <button className="btn-ghost btn-sm"
-                        onClick={() => handleAction(() => approveRequest(req.id))}>
+                        onClick={() => handleAction(
+                          () => approveRequest(req.id),
+                          `Request #${req.id} approved.`
+                        )}>
                         👍 Approve
                       </button>
                     )}
                     <button className="btn-primary btn-sm"
-                      onClick={() => handleAction(() => executeRequest(req.id))}>
+                      onClick={() => handleAction(
+                        () => executeRequest(req.id),
+                        `Request #${req.id} funded successfully.`
+                      )}>
                       🚀 Execute
                     </button>
                   </div>
@@ -229,6 +252,9 @@ export default function Home() {
         </div>
 
       </main>
+
+      {/* ── Toast notifications (fixed, bottom-right) ────────── */}
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }
