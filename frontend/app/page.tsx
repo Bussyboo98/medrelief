@@ -301,6 +301,20 @@ export default function Home() {
             <button className="btn-ghost btn-sm" onClick={fetchRequests}>↻ Refresh</button>
           </div>
 
+          {/* ── Validator guidance ──────────────────────────── */}
+          {isValidator && (
+            <div className="validator-guide">
+              <p className="validator-guide-title">Validator checklist</p>
+              <ul className="validator-guide-list">
+                <li>Is the request description clear and specific?</li>
+                <li>Does the reason reflect a genuine medical need?</li>
+                <li>Does the urgency appear proportionate to the amount?</li>
+                <li>Is the requested amount reasonable for the stated condition?</li>
+                <li>Is the description consistent with no obvious contradictions?</li>
+              </ul>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="requests-tabs">
             <button
@@ -346,20 +360,11 @@ export default function Home() {
                   </div>
                 )}
 
-                {isConnected && !req.executed && (
+                {isConnected && !req.executed && isValidator && (
                   <div className="request-actions">
-                    {isValidator && (
-                      <button className="btn-ghost btn-sm"
-                        onClick={() => handleApprove(req)}>
-                        👍 Approve
-                      </button>
-                    )}
-                    <button className="btn-primary btn-sm"
-                      onClick={() => handleAction(
-                        () => executeRequest(req.id),
-                        `Request #${req.id} funded successfully.`
-                      )}>
-                      🚀 Execute
+                    <button className="btn-ghost btn-sm"
+                      onClick={() => handleApprove(req)}>
+                      👍 Approve
                     </button>
                   </div>
                 )}
