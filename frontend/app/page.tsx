@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 import { useMedRelief } from '../hooks/useMedRelief';
 
 export default function Home() {
-  const { account, connect, deposit, createRequest, approveRequest, executeRequest, addValidator, removeValidator, checkIsAdmin, getContract } = useMedRelief();
+  const { account, isConnected, connect, disconnect, deposit, createRequest, approveRequest, executeRequest, addValidator, removeValidator, checkIsAdmin, getContract } = useMedRelief();
   
   const [requests, setRequests] = useState<any[]>([]);
   const [formData, setFormData] = useState({ deposit: "", reqAmount: "", reqReason: "", validatorAddress: "" });
@@ -49,19 +49,22 @@ export default function Home() {
   };
 
   useEffect(() => { 
-    if (account) {
+    if (isConnected && account) {
       fetchRequests();
       checkNetwork();
       checkIsAdmin(account).then(setIsAdmin);
+    } else {
+      setRequests([]);
+      setIsAdmin(false);
     }
-  }, [account]);
+  }, [isConnected, account]);
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: 'auto' }}>
       <h1>🏥 MedRelief Dashboard</h1>
       
       <div style={{ background: '#f0f0f0', padding: '0.5rem', marginBottom: '1rem', borderRadius: '4px', fontSize: '0.8rem' }}>
-        <strong>Status:</strong> {account ? "Connected" : "Disconnected"} | 
+        <strong>Status:</strong> {isConnected ? "Connected" : "Disconnected"} | 
         <strong> Chain ID:</strong> {chainId || "Unknown"} |
         <strong> Role:</strong> {isAdmin ? "Admin" : "User"}
       </div>
@@ -72,10 +75,13 @@ export default function Home() {
         </div>
       )}
 
-      {!account ? (
+      {!isConnected ? (
         <button onClick={connect} style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Connect Wallet</button>
       ) : (
-        <p>Connected: <code>{account}</code></p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p>Connected: <code>{account}</code></p>
+          <button onClick={disconnect} style={{ padding: '0.3rem 0.6rem', cursor: 'pointer', background: '#eee' }}>Disconnect</button>
+        </div>
       )}
 
       {/* Admin Panel */}

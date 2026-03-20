@@ -1,12 +1,27 @@
 "use client";
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { MED_RELIEF_ABI } from '../constants/abi';
+import { useWallet } from './useWallet';
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
 
 export function useMedRelief() {
-  const [account, setAccount] = useState<string | null>(null);
+  const { address: account, isConnected, connectWallet: connect, disconnectWallet } = useWallet();
+
+  const getReadOnlyContract = useCallback(async () => {
+    if (!ethers.isAddress(contractAddress)) throw new Error("Invalid contract address in ENV");
+    
+    let provider;
+    if (window.ethereum) {
+      provider = new ethers.BrowserProvider(window.ethereum);
+    } else {
+      // Fallback to public RPC if MetaMask is not present for read-only
+      provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || "https://rpc.api.moonbase.moonbeam.network");
+    }
+    
+    return new ethers.Contract(contractAddress, MED_RELIEF_ABI, provider);
+  }, []);
 
   const getContract = useCallback(async () => {
     if (!window.ethereum) throw new Error("No crypto wallet found");
@@ -24,35 +39,25 @@ export function useMedRelief() {
     return new ethers.Contract(contractAddress, MED_RELIEF_ABI, signer);
   }, []);
 
-  const connect = async () => {
-    if (!window.ethereum) return alert("Install MetaMask");
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    setAccount(accounts[0]);
-  };
-
   const deposit = async (ethAmount: string) => {
-    if (!ethers.isAddress(contractAddress)) return alert("Invalid contract address");
     const contract = await getContract();
     const tx = await contract.deposit({ value: ethers.parseEther(ethAmount) });
     return tx.wait();
   };
 
   const createRequest = async (ethAmount: string, reason: string) => {
-    if (!ethers.isAddress(contractAddress)) return alert("Invalid contract address");
     const contract = await getContract();
     const tx = await contract.createRequest(ethers.parseEther(ethAmount), reason);
     return tx.wait();
   };
 
   const approveRequest = async (id: number) => {
-    if (!ethers.isAddress(contractAddress)) return alert("Invalid contract address");
     const contract = await getContract();
     const tx = await contract.approveRequest(id);
     return tx.wait();
   };
 
   const executeRequest = async (id: number) => {
-    if (!ethers.isAddress(contractAddress)) return alert("Invalid contract address");
     const contract = await getContract();
     const tx = await contract.executeRequest(id);
     return tx.wait();
@@ -72,7 +77,7 @@ export function useMedRelief() {
 
   const checkIsAdmin = async (userAddress: string) => {
     try {
-      const contract = await getContract();
+      const contract = await getReadOnlyContract();
       const adminRole = await contract.DEFAULT_ADMIN_ROLE();
       return await contract.hasRole(adminRole, userAddress);
     } catch (e) {
@@ -80,5 +85,19 @@ export function useMedRelief() {
     }
   };
 
-  return { account, connect, deposit, createRequest, approveRequest, executeRequest, addValidator, removeValidator, checkIsAdmin, getContract };
+  return { 
+    account, 
+    isConnected, 
+    connect, 
+    disconnect: disconnectWallet,
+    deposit, 
+    createRequest, 
+    approveRequest, 
+    executeRequest, 
+    addValidator, 
+    removeValidator, 
+    checkIsAdmin, 
+    getContract,
+    getReadOnlyContract
+  };
 }
