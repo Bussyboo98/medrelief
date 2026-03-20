@@ -75,6 +75,17 @@ export function useMedRelief() {
     return tx.wait();
   };
 
+  const getPoolBalance = useCallback(async (): Promise<bigint> => {
+    if (!ethers.isAddress(contractAddress)) return 0n;
+    let provider;
+    if (typeof window !== 'undefined' && window.ethereum) {
+      provider = new ethers.BrowserProvider(window.ethereum);
+    } else {
+      provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || "https://rpc.api.moonbase.moonbeam.network");
+    }
+    return provider.getBalance(contractAddress);
+  }, []);
+
   const checkIsAdmin = async (userAddress: string) => {
     try {
       const contract = await getReadOnlyContract();
@@ -109,6 +120,7 @@ export function useMedRelief() {
     checkIsAdmin,
     checkIsValidator,
     getContract,
-    getReadOnlyContract
+    getReadOnlyContract,
+    getPoolBalance,
   };
 }

@@ -11,7 +11,7 @@ export default function Home() {
   const {
     account, isConnected, connect, disconnect,
     deposit, createRequest, approveRequest, executeRequest,
-    addValidator, removeValidator, checkIsAdmin, checkIsValidator, getReadOnlyContract,
+    addValidator, removeValidator, checkIsAdmin, checkIsValidator, getReadOnlyContract, getPoolBalance,
   } = useMedRelief();
 
   const { toasts, notify, dismiss } = useToast();
@@ -21,9 +21,19 @@ export default function Home() {
   const [formData, setFormData]       = useState({ deposit: '', reqAmount: '', reqReason: '', validatorAddress: '' });
   const [isAdmin, setIsAdmin]         = useState(false);
   const [isValidator, setIsValidator] = useState(false);
+  const [poolBalance, setPoolBalance] = useState<string | null>(null);
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setFormData(prev => ({ ...prev, [key]: e.target.value }));
+
+  const fetchPoolBalance = async () => {
+    try {
+      const bal = await getPoolBalance();
+      setPoolBalance(ethers.formatEther(bal));
+    } catch {
+      setPoolBalance(null);
+    }
+  };
 
   // Central action runner — all contract calls go through here
   const handleAction = async (action: () => Promise<any>, successMsg: string) => {
@@ -31,6 +41,35 @@ export default function Home() {
       await action();
       notify('success', successMsg);
       fetchRequests();
+      fetchPoolBalance();
+    } catch (e: any) {
+      notify('error', parseError(e));
+    }
+  };
+
+  // Approve then auto-execute if threshold is met
+  const handleApprove = async (req: any) => {
+    try {
+      await approveRequest(req.id);
+      notify('success', `Request #${req.id} approved.`);
+
+      // Re-fetch the request to check updated approval count
+      const contract = await getReadOnlyContract();
+      const r = await contract.requests(req.id);
+      const updatedApprovals = Number(r[3]);
+      const isExecuted = r[4];
+
+      if (updatedApprovals >= 2 && !isExecuted) {
+        try {
+          await executeRequest(req.id);
+          notify('success', `Request #${req.id} auto-executed and funded.`);
+        } catch {
+          // Already executed by another tx or failed — silently skip
+        }
+      }
+
+      fetchRequests();
+      fetchPoolBalance();
     } catch (e: any) {
       notify('error', parseError(e));
     }
@@ -51,7 +90,7 @@ export default function Home() {
     }
   };
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => { fetchRequests(); fetchPoolBalance(); }, []);
 
   useEffect(() => {
     if (isConnected && account) {
@@ -102,6 +141,14 @@ export default function Home() {
             funding requests for medical emergencies. Validators approve
             disbursements transparently — no middlemen, no delays.
           </p>
+        </div>
+
+        {/* ── Pool Balance ────────────────────────────────────── */}
+        <div className="pool-balance-card">
+          <span className="pool-balance-label">Pool Balance</span>
+          <span className="pool-balance-value">
+            {poolBalance !== null ? `${poolBalance} ETH` : '—'}
+          </span>
         </div>
 
         {/* ── Admin: Manage Validators ────────────────────────── */}
@@ -230,10 +277,7 @@ export default function Home() {
                   <div className="request-actions">
                     {isValidator && (
                       <button className="btn-ghost btn-sm"
-                        onClick={() => handleAction(
-                          () => approveRequest(req.id),
-                          `Request #${req.id} approved.`
-                        )}>
+                        onClick={() => handleApprove(req)}>
                         👍 Approve
                       </button>
                     )}
