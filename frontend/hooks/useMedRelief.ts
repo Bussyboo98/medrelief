@@ -76,7 +76,7 @@ export function useMedRelief() {
   };
 
   const getPoolBalance = useCallback(async (): Promise<bigint> => {
-    if (!ethers.isAddress(contractAddress)) return 0n;
+    if (!ethers.isAddress(contractAddress)) return BigInt(0);
     let provider;
     if (typeof window !== 'undefined' && window.ethereum) {
       provider = new ethers.BrowserProvider(window.ethereum);
